@@ -75,7 +75,7 @@ plot
 ```
 Subjects in control arm have overall lower outcomes than those of subjects in the experimental arm. Subjects in the experimantal arm also see a bigger variance in outcome over 8 weeks, whereas subjects in the control arm have outcomes that do not fluctuate much over the 8 week course. 
 
-##Problem 3
+## Problem 3
 ```{r message = FALSE, warning = FALSE}
 
 set.seed(1)
@@ -148,4 +148,5 @@ sim_results %>%
   
   
 ```
+
 We can see from the first graph that the true beta 1 values and average estimated beta 1 values are approximately the same. However, when we look at the second graph, when the null hypothesis is rejected, average estimated beta 1 values are not as close in value to true beta 1. 
