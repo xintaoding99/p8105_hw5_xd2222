@@ -68,40 +68,84 @@ tidy_df
 # plotting
 plot <- tidy_df %>% 
   ggplot(aes(x = week, y = outcome, group = subject_id, color = subject_id)) +
-  geom_line()+
-  facet_grid(~arm)+
+  geom_line() +
+  facet_grid(~arm) +
   labs(title = "Observatinos on Each Subject over Time")
 plot
 ```
 Subjects in control arm have overall lower outcomes than those of subjects in the experimental arm. Subjects in the experimantal arm also see a bigger variance in outcome over 8 weeks, whereas subjects in the control arm have outcomes that do not fluctuate much over the 8 week course. 
 
 ##Problem 3
-```{r error = TRUE}
+```{r message = FALSE, warning = FALSE}
+
+set.seed(1)
 sim_regression = function(n = 30, beta0 = 2, beta1){
   sim_data = tibble (
     x = rnorm(n, mean = 0, sd = 1),
     y = beta0 + beta1 * x + rnorm(n, 0, sd = sqrt(50))
   )
   ls_fit <-  lm(y ~ x, data = sim_data) %>% 
-    broom::tidy() %>% 
-    select(term, estimate, p.value) %>% 
-    filter(term == "x") %>% 
-    mutate(term = recode(term, "x" = "beta1_hat"))
+    broom::tidy() 
+  
+tibble(
+    beta1_hat = ls_fit[[2,2]],
+    beta1_p = ls_fit [[2,5]]
+    )    
   
 }
 
-output = rerun(1000, sim_regression(beta1 = 0)) %>% 
+output <-  rerun(10000, sim_regression(beta1 = 0)) %>% 
   bind_rows()
 output
 
-beta1_list <- list(1:6)
-output_list <- vector("list", length = 6)
-for (i in beta1_list) {
-  output_list[[i]] = rerun(1000, sim_regression(beta1 = beta1_list[i]))
-}
-output_total <- output_list %>% 
-  bind_row()
+# when β1={1,2,3,4,5,6}
+sim_results <- tibble(beta_1 = c(1,2,3,4,5,6)) %>% 
+  mutate(output_list = map(.x = beta_1, ~rerun(10000, sim_regression(beta1= .x))),
+         output_df = map(output_list, bind_rows))%>%
+  select(-output_list) %>% 
+  unnest(output_df)
 
-output_total
+head(sim_results)
+
+# Plotting
+sim_results %>% 
+  mutate(reject_null = ifelse(beta1_p <= 0.05, 1,0))%>% 
+  group_by(beta_1) %>% 
+  summarise(power = mean(reject_null)) %>%  #proportion of time null is rejected
+  ggplot(aes(x = beta_1, y = power)) +
+  geom_point() +
+  geom_smooth(se = FALSE) +
+  labs(title = "Association between Beta 1 and Power")
+  
 ```
 
+We can see that as effect size increases, power increases
+
+```{r}
+# Plotting
+sim_results %>% 
+  group_by(beta_1) %>% 
+  summarize(avg_beta1_hat = mean(beta1_hat)) %>% 
+  ggplot(aes(x = beta_1, y = avg_beta1_hat)) + 
+  geom_point() +
+  geom_smooth(se = FALSE) +
+  labs(title = "Association between Beta 1 and Average Beta 1 hat", 
+       x = "True Beta 1", 
+       y = "Average Beta 1 Hat")
+
+sim_results %>% 
+  mutate(reject_null = ifelse(beta1_p <= 0.05, 1,0)) %>% 
+  filter(reject_null == 1) %>% 
+  group_by(beta_1) %>%
+  summarise(avg_beta1_hat = mean(beta1_hat)) %>% 
+  ggplot(aes(x = beta_1, y = avg_beta1_hat)) +
+  geom_point() +
+  geom_smooth(se = FALSE) + 
+  labs(title = "Assocation between Beta 1 and Average Beta 1 Hat that Reject Null", 
+      x = "True Beta 1", 
+      y = "Average Beta 1 Hat")
+  
+  
+  
+```
+We can see from the first graph that the true beta 1 values and average estimated beta 1 values are approximately the same. However, when we look at the second graph, when the null hypothesis is rejected, average estimated beta 1 values are not as close in value to true beta 1. 
